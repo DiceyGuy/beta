@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - MTG Scanner Pro</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e, #16213e);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .success-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #28a745;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 600px;
+            animation: successSlide 0.8s ease-out;
+        }
+        
+        @keyframes successSlide {
+            0% { opacity: 0; transform: translateY(30px) scale(0.9); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .success-title {
+            font-size: 2.5rem;
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+        
+        .success-subtitle {
+            font-size: 1.2rem;
+            color: #888;
+            margin-bottom: 30px;
+        }
+        
+        .plan-info {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid #28a745;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .plan-name {
+            font-size: 1.5rem;
+            color: #4a90e2;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .plan-features {
+            text-align: left;
+            margin: 15px 0;
+        }
+        
+        .plan-features li {
+            margin: 8px 0;
+            color: #ccc;
+        }
+        
+        .next-steps {
+            background: rgba(74, 144, 226, 0.1);
+            border: 1px solid #4a90e2;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .btn {
+            background: #4a90e2;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: #357abd;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+        
+        .contact-info {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            font-size: 14px;
+            color: #888;
+        }
+        
+        @media (max-width: 768px) {
+            .success-container {
+                margin: 20px;
+                padding: 30px 20px;
+            }
+            
+            .success-title {
+                font-size: 2rem;
+            }
+            
+            .btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="success-container">
+        <div class="success-icon">🎉</div>
+        <h1 class="success-title">Payment Successful!</h1>
+        <p class="success-subtitle">Welcome to MTG Scanner Pro!</p>
+        
+        <div class="plan-info">
+            <div class="plan-name" id="planName">MTG Scanner Pro</div>
+            <div>Your subscription is now active and ready to use!</div>
+            
+            <div class="plan-features">
+                <h4 style="color: #4a90e2; margin-bottom: 10px;">What you get:</h4>
+                <ul id="planFeatures">
+                    <li>🧠 98% AI-powered card recognition</li>
+                    <li>📚 Unlimited collection storage</li>
+                    <li>💰 Real-time price tracking</li>
+                    <li>📊 Export to Moxfield, EDHREC</li>
+                    <li>📧 Priority email support</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="next-steps">
+            <h4 style="color: #4a90e2; margin-bottom: 15px;">🚀 Next Steps:</h4>
+            <ol style="color: #ccc;">
+                <li>Return to MTG Scanner and start scanning cards</li>
+                <li>Build your digital collection with unlimited scans</li>
+                <li>Export your collection to your favorite deck builder</li>
+                <li>Contact support if you need any help</li>
+            </ol>
+        </div>
+        
+        <div>
+            <a href="index.html?payment=success" class="btn">🃏 Start Scanning Cards</a>
+            <a href="mailto:support@mtgscanner.com" class="btn btn-success">📧 Contact Support</a>
+        </div>
+        
+        <div class="contact-info">
+            <strong>Need help?</strong><br>
+            Email: support@mtgscanner.com<br>
+            Response time: Within 24 hours<br><br>
+            <strong>Your subscription:</strong><br>
+            You'll receive a confirmation email from Stripe with your receipt and subscription details.<br><br>
+            <strong>Important:</strong> Please save this confirmation for your records.
+        </div>
+    </div>
+
+    <script>
+        // Get plan from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const plan = urlParams.get('plan') || 'pro';
+        
+        // Update plan-specific information
+        const planInfo = {
+            basic: {
+                name: 'MTG Scanner Basic - $4.99/month',
+                features: [
+                    '🧠 98% AI-powered card recognition',
+                    '📚 1,000 scans per month',
+                    '💰 Basic price tracking',
+                    '📊 CSV export functionality',
+                    '🎯 Edition selector',
+                    '📧 Email support',
+                    '🔄 Cancel anytime'
+                ]
+            },
+            pro: {
+                name: 'MTG Scanner Pro - $9.99/month',
+                features: [
+                    '🧠 98% AI-powered card recognition',
+                    '📚 10,000 scans per month',
+                    '💰 Real-time price tracking',
+                    '📊 Export to Moxfield, EDHREC, TCGPlayer',
+                    '📈 Advanced analytics',
+                    '🎯 Edition selector with foil detection',
+                    '📧 Priority email support',
+                    '🔄 Cancel anytime'
+                ]
+            },
+            family: {
+                name: 'MTG Scanner Family - $14.99/month',
+                features: [
+                    '🧠 98% AI-powered card recognition',
+                    '👨‍👩‍👧‍👦 3 user accounts included',
+                    '📚 10,000 shared scans per month',
+                    '💰 Real-time price tracking',
+                    '📊 All export formats',
+                    '📈 Family analytics dashboard',
+                    '📧 Family support',
+                    '🔄 Cancel anytime'
+                ]
+            },
+            store: {
+                name: 'MTG Scanner Store - $49.99/month',
+                features: [
+                    '🧠 98% AI-powered card recognition',
+                    '📚 Unlimited card scanning',
+                    '👥 Multi-user store management',
+                    '📦 Inventory tracking system',
+                    '👤 Customer collection sync',
+                    '💳 Point-of-sale integration',
+                    '💰 Bulk pricing tools',
+                    '📈 Advanced analytics',
+                    '📧 Priority business support',
+                    '🔄 Cancel anytime'
+                ]
+            }
+        };
+        
+        const currentPlan = planInfo[plan] || planInfo.pro;
+        document.getElementById('planName').textContent = currentPlan.name;
+        
+        const featuresList = document.getElementById('planFeatures');
+        featuresList.innerHTML = currentPlan.features.map(feature => `<li>${feature}</li>`).join('');
+        
+        // Log successful conversion
+        console.log(`🎉 Successful subscription: ${plan}`);
+        
+        // Update user tier in localStorage
+        localStorage.setItem('mtg_user_tier', 'premium');
+        localStorage.setItem('mtg_plan_type', plan);
+        localStorage.setItem('mtg_premium_date', new Date().toISOString());
+        
+        // Update the link to include plan info
+        const scanBtn = document.querySelector('a[href*="index.html"]');
+        if (scanBtn) {
+            scanBtn.href = `index.html?payment=success&plan=${plan}`;
+        }
+        
+        // Optional: Track conversion for analytics
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'purchase', {
+                'event_category': 'subscription',
+                'event_label': plan,
+                'value': plan === 'basic' ? 4.99 : plan === 'pro' ? 9.99 : plan === 'family' ? 14.99 : 49.99
+            });
+        }
+        
+        // Celebrate with confetti effect
+        function createConfetti() {
+            const colors = ['#4a90e2', '#28a745', '#ff6b35', '#ffd700'];
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.borderRadius = '50%';
+                confetti.style.pointerEvents = 'none';
+                confetti.style.animation = `fall ${2 + Math.random() * 3}s linear forwards`;
+                confetti.style.zIndex = '9999';
+                
+                document.body.appendChild(confetti);
+                
+                setTimeout(() => confetti.remove(), 5000);
+            }
+        }
+        
+        // Add CSS for falling animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fall {
+                0% {
+                    transform: translateY(-100vh) rotate(0deg);
+                    opacity: 1;
+                }
+                100% {
+                    transform: translateY(100vh) rotate(720deg);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Start confetti after page loads
+        setTimeout(createConfetti, 500);
+    </script>
+</body>
+</html>

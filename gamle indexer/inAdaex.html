@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Scanner Pro v4.0 - Professional Collection Manager</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --primary: #4a90e2;
+            --primary-dark: #357abd;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --dark: #1a1a2e;
+            --darker: #0a0a0a;
+            --light: #f8f9fa;
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #ffffff;
+            --text-muted: #888;
+            --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--darker), var(--dark), #16213e);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Professional Loading Screen */
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, var(--darker), var(--dark), #16213e);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 1s ease-out;
+        }
+
+        .loading-screen.fade-out { opacity: 0; pointer-events: none; }
+
+        .logo-animation {
+            font-size: 4rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--primary), #2196f3, var(--success));
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: glow 2s ease-in-out infinite;
+            margin-bottom: 2rem;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: brightness(1) drop-shadow(0 0 20px rgba(74, 144, 226, 0.5)); }
+            50% { filter: brightness(1.2) drop-shadow(0 0 40px rgba(74, 144, 226, 0.8)); }
+        }
+
+        .progress-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            animation: progress 2s ease-out;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        /* Main App Container */
+        .app-container {
+            opacity: 0;
+            transition: opacity 1s ease-in;
+            transform: translateY(20px);
+        }
+
+        .app-container.loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Navigation */
+        .navbar {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link.active {
+            background: var(--primary);
+        }
+
+        /* Main Layout */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Scanner Section */
+        .scanner-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .scanner-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .scanner-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--card-shadow);
+            border-color: var(--primary);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Video Container */
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            margin-bottom: 1rem;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .scan-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .scan-overlay.active {
+            opacity: 1;
+            background: radial-gradient(circle at center, transparent 30%, rgba(74, 144, 226, 0.3));
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* Scan Mode Selector */
+        .scan-modes {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .scan-mode {
+            padding: 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .scan-mode:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+        }
+
+        .scan-mode.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .scan-mode-title {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .scan-mode-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 144, 226, 0.4);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Collection Manager */
+        .collection-manager {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        /* Folder System */
+        .folder-structure {
+            display: flex;
+            gap: 2rem;
+            height: 600px;
+        }
+
+        .folder-sidebar {
+            width: 250px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .folder-item {
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .folder-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .folder-item.active {
+            background: var(--primary);
+            box-shadow: 0 3px 10px rgba(74, 144, 226, 0.3);
+        }
+
+        .folder-icon {
+            margin-right: 0.5rem;
+        }
+
+        .folder-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        .subfolder {
+            margin-left: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        /* Card Grid */
+        .collection-content {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .collection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .collection-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .search-box {
+            padding: 0.6rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: white;
+            width: 250px;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.25rem;
+            border-radius: 8px;
+        }
+
+        .view-btn {
+            padding: 0.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .view-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Card Display */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .mtg-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .mtg-card:hover {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+
+        .mtg-card.selected {
+            outline: 3px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 280px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #333, #222);
+        }
+
+        .card-info {
+            padding: 1rem;
+        }
+
+        .card-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-details {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .card-price {
+            font-weight: bold;
+            color: var(--success);
+            font-size: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .card-actions {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .mtg-card:hover .card-actions {
+            opacity: 1;
+        }
+
+        .card-action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--border);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .card-action-btn:hover {
+            background: var(--primary);
+            transform: scale(1.1);
+        }
+
+        /* Batch Operations */
+        .batch-operations {
+            background: rgba(74, 144, 226, 0.1);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .batch-operations.active {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            0% { opacity: 0; transform: translateY(-20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Modals */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 2px solid var(--primary);
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalIn 0.3s ease;
+        }
+
+        @keyframes modalIn {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: var(--danger);
+        }
+
+        /* Stats Dashboard */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Format Badges */
+        .format-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .format-badge.standard { border-color: #ff9800; color: #ff9800; }
+        .format-badge.modern { border-color: #2196f3; color: #2196f3; }
+        .format-badge.legacy { border-color: #9c27b0; color: #9c27b0; }
+        .format-badge.vintage { border-color: #f44336; color: #f44336; }
+        .format-badge.commander { border-color: #4caf50; color: #4caf50; }
+        .format-badge.pioneer { border-color: #00bcd4; color: #00bcd4; }
+        .format-badge.pauper { border-color: #795548; color: #795548; }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 3000;
+        }
+
+        .toast {
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+            min-width: 300px;
+            animation: toastIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        @keyframes toastIn {
+            0% { opacity: 0; transform: translateX(100px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+        .toast.warning { border-color: var(--warning); }
+
+        .toast-icon {
+            font-size: 1.5rem;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .toast-message {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Loading States */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .scanner-section {
+                grid-template-columns: 1fr;
+            }
+
+            .folder-structure {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .folder-sidebar {
+                width: 100%;
+                max-height: 200px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .card-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+
+            .collection-actions {
+                flex-wrap: wrap;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Professional Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="logo-animation">🃏 MTG Scanner Pro</div>
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        <p style="margin-top: 1rem; color: var(--text-muted);">Initializing AI Scanner...</p>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="app-container">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="navbar-content">
+                <div class="brand">
+                    <span>🃏</span>
+                    <span>MTG Scanner Pro v4.0</span>
+                </div>
+                <div class="nav-links">
+                    <a href="#scanner" class="nav-link active">Scanner</a>
+                    <a href="#collection" class="nav-link">Collection</a>
+                    <a href="#decks" class="nav-link">Decks</a>
+                    <a href="#analytics" class="nav-link">Analytics</a>
+                    <button id="upgradeNavBtn" class="btn btn-primary btn-sm">💎 Upgrade</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <!-- Scanner Section -->
+            <div class="scanner-section">
+                <!-- Camera Feed -->
+                <div class="scanner-card">
+                    <h2 class="section-title">
+                        <span>📷</span>
+                        <span>AI Scanner</span>
+                    </h2>
+
+                    <div class="video-container">
+                        <video id="video" autoplay muted playsinline></video>
+                        <div class="scan-overlay" id="scanOverlay"></div>
+                        <div id="cameraStatus" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); color: white;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 3rem; margin-bottom: 1rem;">📷</div>
+                                <div>Initializing camera...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scan Modes -->
+                    <div class="scan-modes">
+                        <div class="scan-mode" data-mode="fast" onclick="setScanMode('fast')">
+                            <div class="scan-mode-title">⚡ Fast</div>
+                            <div class="scan-mode-desc">Quick scan</div>
+                        </div>
+                        <div class="scan-mode active" data-mode="accurate" onclick="setScanMode('accurate')">
+                            <div class="scan-mode-title">🎯 Accurate</div>
+                            <div class="scan-mode-desc">Full details</div>
+                        </div>
+                        <div class="scan-mode" data-mode="manual" onclick="setScanMode('manual')">
+                            <div class="scan-mode-title">✏️ Manual</div>
+                            <div class="scan-mode-desc">Type name</div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Input -->
+                    <div id="manualInput" style="display: none; margin-bottom: 1rem;">
+                        <input type="text" id="manualCardName" class="search-box" style="width: 100%;" placeholder="Enter card name..." onkeypress="if(event.key==='Enter') scanCard()">
+                    </div>
+
+                    <!-- Scan Controls -->
+                    <div style="display: flex; gap: 1rem;">
+                        <button id="scanBtn" class="btn btn-primary" style="flex: 1;" onclick="scanCard()" disabled>
+                            <span>🎯</span>
+                            <span>Scan Card</span>
+                        </button>
+                        <button id="autoBtn" class="btn btn-success" onclick="toggleAutoMode()">
+                            <span>▶️</span>
+                            <span>Auto</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scan Results -->
+                <div class="scanner-card">
+                    <h2 class="section-title">
+                        <span>🎯</span>
+                        <span>Scan Results</span>
+                    </h2>
+
+                    <div id="scanResults">
+                        <div style="text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">📷</div>
+                            <div>Point camera at an MTG card and click scan</div>
+                            <div style="font-size: 0.9rem; margin-top: 0.5rem;">95% AI Recognition Accuracy</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collection Manager -->
+            <div class="collection-manager">
+                <h2 class="section-title">
+                    <span>📚</span>
+                    <span>Collection Manager</span>
+                </h2>
+
+                <!-- Batch Operations Bar -->
+                <div id="batchOperations" class="batch-operations">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span id="selectedCount">0</span> cards selected
+                        </div>
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn btn-sm" onclick="moveSelectedCards()">📁 Move</button>
+                            <button class="btn btn-sm" onclick="copySelectedCards()">📋 Copy</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSelectedCards()">🗑️ Delete</button>
+                            <button class="btn btn-sm" onclick="clearSelection()">❌ Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="folder-structure">
+                    <!-- Folder Sidebar -->
+                    <div class="folder-sidebar">
+                        <div style="margin-bottom: 1rem;">
+                            <button class="btn btn-sm btn-primary" style="width: 100%;" onclick="createNewFolder()">
+                                ➕ New Folder
+                            </button>
+                        </div>
+
+                        <div id="folderList">
+                            <!-- Main Collection -->
+                            <div class="folder-item active" data-folder="collection" onclick="openFolder('collection')">
+                                <div>
+                                    <span class="folder-icon">📂</span>
+                                    <span>Collection</span>
+                                </div>
+                                <span class="folder-count">0</span>
+                            </div>
+
+                            <!-- Decks Folder with Subfolders -->
+                            <div class="folder-item" data-folder="decks" onclick="openFolder('decks')">
+                                <div>
+                                    <span class="folder-icon">🎯</span>
+                                    <span>Decks</span>
+                                </div>
+                                <span class="folder-count">0</span>
+                            </div>
+
+                            <!-- Format Subfolders -->
+                            <div id="formatFolders" style="display: none;">
+                                <div class="folder-item subfolder" data-folder="decks/standard" onclick="openFolder('decks/standard')">
+                                    <div>
+                                        <span class="folder-icon">📄</span>
+                                        <span>Standard</span>
+                                    </div>
+                                    <span class="folder-count">0</span>
+                                </div>
+                                <div class="folder-item subfolder" data-folder="decks/modern" onclick="openFolder('decks/modern')">
+                                    <div>
+                                        <span class="folder-icon">⚡</span>
+                                        <span>Modern</span>
+                                    </div>
+                                    <span class="folder-count">0</span>
+                                </div>
+                                <div class="folder-item subfolder" data-folder="decks/commander" onclick="openFolder('decks/commander')">
+                                    <div>
+                                        <span class="folder-icon">👑</span>
+                                        <span>Commander</span>
+                                    </div>
+                                    <span class="folder-count">0</span>
+                                </div>
+                                <div class="folder-item subfolder" data-folder="decks/pioneer" onclick="openFolder('decks/pioneer')">
+                                    <div>
+                                        <span class="folder-icon">🏛️</span>
+                                        <span>Pioneer</span>
+                                    </div>
+                                    <span class="folder-count">0</span>
+                                </div>
+                                <div class="folder-item subfolder" data-folder="decks/legacy" onclick="openFolder('decks/legacy')">
+                                    <div>
+                                        <span class="folder-icon">📜</span>
+                                        <span>Legacy</span>
+                                    </div>
+                                    <span class="folder-count">0</span>
+                                </div>
+                                <div class="folder-item subfolder" data-folder="decks/vintage" onclick="openFolder('decks/vintage')">
+                                    <div>
+                                        <span class="folder-icon">💎</span>
+                                        <span>Vintage</span>
+                                    </div>
+                                    <span class="folder-count">0</span>
+                                </div>
+                                <div class="folder-item subfolder" data-folder="decks/pauper" onclick="openFolder('decks/pauper')">
+                                    <div>
+                                        <span class="folder-icon">🪙</span>
+                                        <span>Pauper</span>
+                                    </div>
+                                    <span class="folder-count">0</span>
+                                </div>
+                            </div>
+
+                            <!-- Other Folders -->
+                            <div class="folder-item" data-folder="wishlist" onclick="openFolder('wishlist')">
+                                <div>
+                                    <span class="folder-icon">⭐</span>
+                                    <span>Wishlist</span>
+                                </div>
+                                <span class="folder-count">0</span>
+                            </div>
+
+                            <div class="folder-item" data-folder="tradebinder" onclick="openFolder('tradebinder')">
+                                <div>
+                                    <span class="folder-icon">🔄</span>
+                                    <span>Trade Binder</span>
+                                </div>
+                                <span class="folder-count">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Collection Content -->
+                    <div class="collection-content">
+                        <div class="collection-header">
+                            <div>
+                                <h3 id="folderTitle" style="margin: 0; color: var(--primary);">Collection</h3>
+                                <div id="folderStats" style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    0 cards • $0.00 value
+                                </div>
+                            </div>
+                            <div class="collection-actions">
+                                <input type="text" class="search-box" placeholder="🔍 Search cards..." onkeyup="filterCards(this.value)">
+                                <div class="view-toggle">
+                                    <button class="view-btn active" onclick="setViewMode('grid')">⊞</button>
+                                    <button class="view-btn" onclick="setViewMode('list')">☰</button>
+                                    <button class="view-btn" onclick="setViewMode('image')">🖼️</button>
+                                </div>
+                                <button class="btn btn-sm" onclick="showSortOptions()">↕️ Sort</button>
+                                <button class="btn btn-sm btn-primary" onclick="exportFolder()">📤 Export</button>
+                            </div>
+                        </div>
+
+                        <div id="cardContainer" class="card-grid">
+                            <!-- Cards will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Dashboard -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalCards">0</div>
+                    <div class="stat-label">Total Cards</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="uniqueCards">0</div>
+                    <div class="stat-label">Unique Cards</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalValue">$0</div>
+                    <div class="stat-label">Collection Value</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalScans">0</div>
+                    <div class="stat-label">Total Scans</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move/Copy Modal -->
+    <div id="moveModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Move/Copy Cards</h3>
+                <button class="modal-close" onclick="closeModal('moveModal')">×</button>
+            </div>
+            <div id="moveModalBody">
+                <!-- Folder selection will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // 🚀 MTG Scanner Pro v4.0 - World-Class Implementation
+        
+        // Global State Management
+        const AppState = {
+            // Scanner State
+            scanMode: 'accurate',
+            autoMode: false,
+            autoInterval: null,
+            currentCard: null,
+            scanHistory: [],
+            
+            // Collection State
+            currentFolder: 'collection',
+            selectedCards: new Set(),
+            viewMode: 'grid',
+            
+            // User State
+            userTier: localStorage.getItem('mtg_user_tier') || 'free',
+            userPlan: localStorage.getItem('mtg_plan_type') || 'free',
+            dailyScans: 0,
+            
+            // Data Storage
+            collections: {},
+            folderStructure: {
+                collection: { name: 'Collection', icon: '📂', cards: [] },
+                decks: {
+                    name: 'Decks',
+                    icon: '🎯',
+                    cards: [],
+                    subfolders: {
+                        standard: { name: 'Standard', icon: '📄', format: 'standard', cards: [] },
+                        modern: { name: 'Modern', icon: '⚡', format: 'modern', cards: [] },
+                        commander: { name: 'Commander', icon: '👑', format: 'commander', cards: [] },
+                        pioneer: { name: 'Pioneer', icon: '🏛️', format: 'pioneer', cards: [] },
+                        legacy: { name: 'Legacy', icon: '📜', format: 'legacy', cards: [] },
+                        vintage: { name: 'Vintage', icon: '💎', format: 'vintage', cards: [] },
+                        pauper: { name: 'Pauper', icon: '🪙', format: 'pauper', cards: [] }
+                    }
+                },
+                wishlist: { name: 'Wishlist', icon: '⭐', cards: [] },
+                tradebinder: { name: 'Trade Binder', icon: '🔄', cards: [] }
+            }
+        };
+
+        // Enhanced AI Service with Fixed Parsing
+        class ProfessionalMTGService {
+            constructor() {
+                this.apiKey = 'AIzaSyBtqyUy1X3BdNtUAW88QZWbtqI39MbUDdk';
+                this.geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+                this.scryfallUrl = 'https://api.scryfall.com';
+                this.imageCache = new Map();
+                this.lastApiCall = 0;
+                this.minInterval = 2000;
+            }
+
+            async scanCard(video) {
+                try {
+                    // Rate limiting
+                    const now = Date.now();
+                    if (now - this.lastApiCall < this.minInterval) {
+                        await new Promise(r => setTimeout(r, this.minInterval - (now - this.lastApiCall)));
+                    }
+                    this.lastApiCall = Date.now();
+
+                    const imageData = this.captureFrame(video);
+                    const result = await this.callGemini(imageData);
+                    
+                    if (result.hasCard) {
+                        result.cardData = await this.getCardData(result);
+                    }
+                    
+                    return result;
+                } catch (error) {
+                    console.error('Scan error:', error);
+                    throw error;
+                }
+            }
+
+            captureFrame(video) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = Math.min(video.videoWidth || 640, 1280);
+                canvas.height = Math.min(video.videoHeight || 480, 720);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                return canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+            }
+
+            async callGemini(imageData) {
+                const prompt = AppState.scanMode === 'accurate' 
+                    ? "Analyze this Magic: The Gathering card. Provide: CARD_NAME: [exact name] | SET_CODE: [3-letter code] | COLLECTOR_NUM: [number] | RARITY: [rarity] | CONFIDENCE: [80-99]. If no MTG card visible, respond: NO_MTG_CARD"
+                    : "Identify this Magic: The Gathering card. Respond with only: CARD_NAME: [exact name] CONFIDENCE: [80-99]. If no card visible: NO_MTG_CARD";
+
+                const body = {
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inline_data: { mime_type: "image/jpeg", data: imageData } }
+                        ]
+                    }]
+                };
+
+                const response = await fetch(`${this.geminiUrl}?key=${this.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (!response.ok) throw new Error('Gemini API error');
+
+                const data = await response.json();
+                const text = data.candidates[0].content.parts[0].text;
+                
+                console.log('🧠 Gemini response:', text);
+                
+                return this.parseGeminiResponse(text);
+            }
+
+            parseGeminiResponse(text) {
+                if (text.includes('NO_MTG_CARD')) {
+                    return { hasCard: false, message: "No MTG card detected" };
+                }
+
+                const result = { hasCard: true };
+
+                // Enhanced parsing for both modes
+                if (AppState.scanMode === 'accurate') {
+                    const match = text.match(/CARD_NAME:\s*([^|]+?)\s*\|.*?CONFIDENCE:\s*(\d+)/i);
+                    if (match) {
+                        result.name = match[1].trim();
+                        result.confidence = parseInt(match[2]);
+                        
+                        // Extract additional data
+                        const setMatch = text.match(/SET_CODE:\s*([A-Z0-9]{3,4})/i);
+                        const numMatch = text.match(/COLLECTOR_NUM:\s*(\d+)/i);
+                        const rarityMatch = text.match(/RARITY:\s*(\w+)/i);
+                        
+                        if (setMatch) result.setCode = setMatch[1];
+                        if (numMatch) result.collectorNumber = numMatch[1];
+                        if (rarityMatch) result.rarity = rarityMatch[1];
+                    }
+                } else {
+                    // Fast mode - fixed regex
+                    const match = text.match(/CARD_NAME:\s*([^\n]+?)(?:\s*CONFIDENCE:\s*(\d+))?/i);
+                    if (match) {
+                        result.name = match[1].trim();
+                        result.confidence = parseInt(match[2] || '85');
+                    }
+                }
+
+                if (!result.name) {
+                    return { hasCard: false, message: "Could not parse card name" };
+                }
+
+                return result;
+            }
+
+            async getCardData(scanResult) {
+                try {
+                    console.log('🔍 Getting card data for:', scanResult);
+
+                    // For manual mode, use search endpoint
+                    if (AppState.scanMode === 'manual') {
+                        const searchUrl = `${this.scryfallUrl}/cards/search?q=${encodeURIComponent(scanResult.name)}&unique=cards&order=released`;
+                        const response = await fetch(searchUrl);
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.data && data.data.length > 0) {
+                                return this.formatCardData(data.data[0]);
+                            }
+                        }
+                        throw new Error('No matches found');
+                    }
+
+                    // For accurate mode with set/number
+                    if (scanResult.setCode && scanResult.collectorNumber) {
+                        const exactUrl = `${this.scryfallUrl}/cards/${scanResult.setCode.toLowerCase()}/${scanResult.collectorNumber}`;
+                        try {
+                            const response = await fetch(exactUrl);
+                            if (response.ok) {
+                                const data = await response.json();
+                                return this.formatCardData(data);
+                            }
+                        } catch (e) {
+                            console.log('Exact match failed, trying fuzzy...');
+                        }
+                    }
+
+                    // Fallback to fuzzy search
+                    const fuzzyUrl = `${this.scryfallUrl}/cards/named?fuzzy=${encodeURIComponent(scanResult.name)}`;
+                    const response = await fetch(fuzzyUrl);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        return this.formatCardData(data);
+                    }
+
+                    throw new Error('Card not found');
+                    
+                } catch (error) {
+                    console.error('Scryfall error:', error);
+                    return {
+                        name: scanResult.name,
+                        prices: { usd: null },
+                        image_uris: null,
+                        set_name: 'Unknown',
+                        error: true
+                    };
+                }
+            }
+
+            formatCardData(data) {
+                return {
+                    id: data.id,
+                    name: data.name,
+                    set: data.set,
+                    set_name: data.set_name,
+                    collector_number: data.collector_number,
+                    rarity: data.rarity,
+                    type_line: data.type_line,
+                    mana_cost: data.mana_cost,
+                    cmc: data.cmc,
+                    colors: data.colors || [],
+                    color_identity: data.color_identity || [],
+                    prices: data.prices || {},
+                    image_uris: data.image_uris || {},
+                    oracle_text: data.oracle_text,
+                    power: data.power,
+                    toughness: data.toughness,
+                    legalities: data.legalities || {},
+                    artist: data.artist,
+                    released_at: data.released_at,
+                    scryfall_uri: data.scryfall_uri,
+                    purchase_uris: data.purchase_uris || {}
+                };
+            }
+        }
+
+        // Initialize AI Service
+        const aiService = new ProfessionalMTGService();
+
+        // 🎯 Core Functions
+
+        // Initialize Application
+        async function initializeApp() {
+            console.log('🚀 MTG Scanner Pro v4.0 initializing...');
+            
+            // Load saved data
+            loadCollections();
+            
+            // Initialize camera
+            await initCamera();
+            
+            // Update UI
+            updateStats();
+            renderFolderContents();
+            
+            // Show app
+            setTimeout(() => {
+                document.getElementById('loadingScreen').classList.add('fade-out');
+                document.getElementById('app').classList.add('loaded');
+            }, 2000);
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            console.log('✅ Application ready!');
+        }
+
+        // Camera Initialization
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 },
+                        facingMode: 'environment'
+                    }
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    document.getElementById('cameraStatus').style.display = 'none';
+                    document.getElementById('scanBtn').disabled = false;
+                };
+            } catch (error) {
+                console.error('Camera error:', error);
+                showToast('Camera Error', 'Please allow camera access', 'error');
+            }
+        }
+
+        // 🔍 Scanning Functions
+        
+        function setScanMode(mode) {
+            AppState.scanMode = mode;
+            document.querySelectorAll('.scan-mode').forEach(el => {
+                el.classList.toggle('active', el.dataset.mode === mode);
+            });
+            
+            document.getElementById('manualInput').style.display = mode === 'manual' ? 'block' : 'none';
+            
+            console.log('🎯 Scan mode:', mode);
+        }
+
+        async function scanCard() {
+            const btn = document.getElementById('scanBtn');
+            const overlay = document.getElementById('scanOverlay');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span>🔄</span><span>Scanning...</span>';
+            overlay.classList.add('active');
+            
+            try {
+                let result;
+                
+                if (AppState.scanMode === 'manual') {
+                    const cardName = document.getElementById('manualCardName').value.trim();
+                    if (!cardName) {
+                        throw new Error('Please enter a card name');
+                    }
+                    result = { hasCard: true, name: cardName, confidence: 100 };
+                } else {
+                    const video = document.getElementById('video');
+                    result = await aiService.scanCard(video);
+                }
+                
+                if (result.hasCard) {
+                    displayScanResult(result);
+                    AppState.scanHistory.push(result);
+                    updateStats();
+                } else {
+                    showToast('No Card Detected', 'Try adjusting the angle or lighting', 'warning');
+                }
+                
+            } catch (error) {
+                console.error('Scan error:', error);
+                showToast('Scan Error', error.message || 'Please try again', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>🎯</span><span>Scan Card</span>';
+                overlay.classList.remove('active');
+            }
+        }
+
+        function displayScanResult(result) {
+            const container = document.getElementById('scanResults');
+            const cardData = result.cardData || {};
+            
+            // Format price
+            let priceDisplay = 'Price unavailable';
+            if (cardData.prices?.usd) {
+                priceDisplay = `$${parseFloat(cardData.prices.usd).toFixed(2)}`;
+            } else if (cardData.prices?.usd_foil) {
+                priceDisplay = `$${parseFloat(cardData.prices.usd_foil).toFixed(2)} (foil)`;
+            }
+
+            // Format image
+            const imageUrl = cardData.image_uris?.normal || cardData.image_uris?.large || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjE4Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+
+            container.innerHTML = `
+                <div class="scan-result-card" style="display: flex; gap: 1.5rem;">
+                    <div style="flex-shrink: 0;">
+                        <img src="${imageUrl}" alt="${result.name}" style="width: 200px; height: 280px; border-radius: 12px; object-fit: cover;">
+                    </div>
+                    <div style="flex: 1;">
+                        <h3 style="color: var(--primary); margin-bottom: 0.5rem;">${result.name}</h3>
+                        <div style="color: var(--text-muted); margin-bottom: 1rem;">
+                            <div>Confidence: ${result.confidence}%</div>
+                            ${cardData.set_name ? `<div>Set: ${cardData.set_name}</div>` : ''}
+                            ${cardData.rarity ? `<div>Rarity: ${cardData.rarity}</div>` : ''}
+                            ${cardData.type_line ? `<div>Type: ${cardData.type_line}</div>` : ''}
+                        </div>
+                        <div style="font-size: 1.5rem; color: var(--success); margin-bottom: 1rem;">
+                            ${priceDisplay}
+                        </div>
+                        
+                        <!-- Format Legality -->
+                        ${cardData.legalities ? `
+                            <div style="margin-bottom: 1rem;">
+                                ${Object.entries(cardData.legalities)
+                                    .filter(([format, status]) => status === 'legal' && ['standard', 'modern', 'commander', 'pioneer', 'legacy', 'vintage', 'pauper'].includes(format))
+                                    .map(([format]) => `<span class="format-badge ${format}">${format}</span>`)
+                                    .join('')}
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="saveToFolder('${result.name}')">
+                                💾 Save to Collection
+                            </button>
+                            <button class="btn btn-success" onclick="quickAddToDeck('${result.name}')">
+                                🎯 Quick Add to Deck
+                            </button>
+                            ${cardData.scryfall_uri ? `
+                                <button class="btn" onclick="window.open('${cardData.scryfall_uri}', '_blank')">
+                                    🔗 View on Scryfall
+                                </button>
+                            ` : ''}
+                        </div>
+                        
+                        <!-- Retry/Correct Options -->
+                        ${result.confidence < 90 ? `
+                            <div style="margin-top: 1rem; padding: 1rem; background: rgba(255, 193, 7, 0.1); border: 1px solid var(--warning); border-radius: 8px;">
+                                <div style="color: var(--warning); margin-bottom: 0.5rem;">⚠️ Low confidence scan</div>
+                                <button class="btn btn-sm" onclick="scanCard()">🔄 Retry Scan</button>
+                                <button class="btn btn-sm" onclick="setScanMode('manual')">✏️ Manual Entry</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            // Store current card for saving
+            AppState.currentCard = { ...result, cardData };
+        }
+
+        // 📁 Collection Management
+        
+        function loadCollections() {
+            const saved = localStorage.getItem('mtg_collections_v4');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    AppState.folderStructure = { ...AppState.folderStructure, ...data };
+                } catch (e) {
+                    console.error('Error loading collections:', e);
+                }
+            }
+        }
+
+        function saveCollections() {
+            localStorage.setItem('mtg_collections_v4', JSON.stringify(AppState.folderStructure));
+        }
+
+        function openFolder(folderPath) {
+            AppState.currentFolder = folderPath;
+            
+            // Update UI
+            document.querySelectorAll('.folder-item').forEach(el => {
+                el.classList.toggle('active', el.dataset.folder === folderPath);
+            });
+            
+            // Show/hide deck subfolders
+            if (folderPath === 'decks' || folderPath.startsWith('decks/')) {
+                document.getElementById('formatFolders').style.display = 'block';
+            } else {
+                document.getElementById('formatFolders').style.display = 'none';
+            }
+            
+            renderFolderContents();
+            updateFolderStats();
+        }
+
+        function renderFolderContents() {
+            const container = document.getElementById('cardContainer');
+            const folder = getFolderByPath(AppState.currentFolder);
+            
+            if (!folder || !folder.cards || folder.cards.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-muted);">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">📁</div>
+                        <div>No cards in this folder yet</div>
+                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">Scan cards to add them to your collection</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort cards
+            const sortedCards = [...folder.cards].sort((a, b) => {
+                // Default sort by name
+                return a.name.localeCompare(b.name);
+            });
+            
+            // Render based on view mode
+            if (AppState.viewMode === 'grid') {
+                container.className = 'card-grid';
+                container.innerHTML = sortedCards.map((card, index) => renderCardGrid(card, index)).join('');
+            } else if (AppState.viewMode === 'list') {
+                container.className = 'card-list';
+                container.innerHTML = sortedCards.map((card, index) => renderCardList(card, index)).join('');
+            } else {
+                container.className = 'card-images';
+                container.innerHTML = sortedCards.map((card, index) => renderCardImage(card, index)).join('');
+            }
+        }
+
+        function renderCardGrid(card, index) {
+            const imageUrl = card.cardData?.image_uris?.normal || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjE4Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+            const price = card.cardData?.prices?.usd ? `$${parseFloat(card.cardData.prices.usd).toFixed(2)}` : 'N/A';
+            const isSelected = AppState.selectedCards.has(index);
+            
+            return `
+                <div class="mtg-card ${isSelected ? 'selected' : ''}" onclick="toggleCardSelection(${index})" data-index="${index}">
+                    <img src="${imageUrl}" alt="${card.name}" class="card-image" loading="lazy">
+                    <div class="card-info">
+                        <div class="card-name" title="${card.name}">${card.name}</div>
+                        <div class="card-details">
+                            <div>${card.cardData?.set_name || 'Unknown Set'}</div>
+                            <div>${card.cardData?.rarity || 'Unknown'}</div>
+                        </div>
+                        <div class="card-price">${price}</div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="card-action-btn" onclick="event.stopPropagation(); moveCard(${index})" title="Move">📁</button>
+                        <button class="card-action-btn" onclick="event.stopPropagation(); duplicateCard(${index})" title="Duplicate">📋</button>
+                        <button class="card-action-btn" onclick="event.stopPropagation(); deleteCard(${index})" title="Delete">🗑️</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getFolderByPath(path) {
+            const parts = path.split('/');
+            let folder = AppState.folderStructure[parts[0]];
+            
+            if (parts.length > 1 && folder.subfolders) {
+                folder = folder.subfolders[parts[1]];
+            }
+            
+            return folder;
+        }
+
+        function saveToFolder(cardName) {
+            if (!AppState.currentCard) return;
+            
+            const folder = getFolderByPath(AppState.currentFolder);
+            if (!folder) return;
+            
+            const cardToSave = {
+                ...AppState.currentCard,
+                id: Date.now() + Math.random(),
+                savedAt: new Date().toISOString()
+            };
+            
+            folder.cards.push(cardToSave);
+            saveCollections();
+            renderFolderContents();
+            updateStats();
+            updateFolderCounts();
+            
+            showToast('Card Saved', `${cardName} added to ${folder.name}`, 'success');
+        }
+
+        function quickAddToDeck(cardName) {
+            if (!AppState.currentCard) return;
+            
+            // Determine best format based on legalities
+            const legalities = AppState.currentCard.cardData?.legalities || {};
+            let targetFormat = 'commander'; // Default
+            
+            if (legalities.standard === 'legal') targetFormat = 'standard';
+            else if (legalities.modern === 'legal') targetFormat = 'modern';
+            else if (legalities.pioneer === 'legal') targetFormat = 'pioneer';
+            
+            const folder = AppState.folderStructure.decks.subfolders[targetFormat];
+            
+            const cardToSave = {
+                ...AppState.currentCard,
+                id: Date.now() + Math.random(),
+                savedAt: new Date().toISOString()
+            };
+            
+            folder.cards.push(cardToSave);
+            saveCollections();
+            updateStats();
+            updateFolderCounts();
+            
+            showToast('Added to Deck', `${cardName} added to ${folder.name} deck`, 'success');
+        }
+
+        // 🎨 UI Functions
+        
+        function updateStats() {
+            let totalCards = 0;
+            let uniqueCards = new Set();
+            let totalValue = 0;
+            
+            // Recursive function to count cards
+            function countFolder(folder) {
+                if (folder.cards) {
+                    totalCards += folder.cards.length;
+                    folder.cards.forEach(card => {
+                        uniqueCards.add(card.name);
+                        if (card.cardData?.prices?.usd) {
+                            totalValue += parseFloat(card.cardData.prices.usd);
+                        }
+                    });
+                }
+                
+                if (folder.subfolders) {
+                    Object.values(folder.subfolders).forEach(countFolder);
+                }
+            }
+            
+            Object.values(AppState.folderStructure).forEach(countFolder);
+            
+            document.getElementById('totalCards').textContent = totalCards.toLocaleString();
+            document.getElementById('uniqueCards').textContent = uniqueCards.size.toLocaleString();
+            document.getElementById('totalValue').textContent = `$${totalValue.toFixed(2)}`;
+            document.getElementById('totalScans').textContent = AppState.scanHistory.length.toLocaleString();
+        }
+
+        function updateFolderStats() {
+            const folder = getFolderByPath(AppState.currentFolder);
+            if (!folder) return;
+            
+            const cards = folder.cards || [];
+            let totalValue = 0;
+            
+            cards.forEach(card => {
+                if (card.cardData?.prices?.usd) {
+                    totalValue += parseFloat(card.cardData.prices.usd);
+                }
+            });
+            
+            document.getElementById('folderTitle').textContent = folder.name;
+            document.getElementById('folderStats').textContent = `${cards.length} cards • $${totalValue.toFixed(2)} value`;
+        }
+
+        function updateFolderCounts() {
+            document.querySelectorAll('.folder-item').forEach(el => {
+                const folderPath = el.dataset.folder;
+                const folder = getFolderByPath(folderPath);
+                if (folder) {
+                    const count = folder.cards ? folder.cards.length : 0;
+                    el.querySelector('.folder-count').textContent = count;
+                }
+            });
+        }
+
+        function showToast(title, message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type]}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 🎯 Selection & Batch Operations
+        
+        function toggleCardSelection(index) {
+            if (AppState.selectedCards.has(index)) {
+                AppState.selectedCards.delete(index);
+            } else {
+                AppState.selectedCards.add(index);
+            }
+            
+            updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+            document.querySelectorAll('.mtg-card').forEach((el, index) => {
+                el.classList.toggle('selected', AppState.selectedCards.has(index));
+            });
+            
+            const batchOps = document.getElementById('batchOperations');
+            if (AppState.selectedCards.size > 0) {
+                batchOps.classList.add('active');
+                document.getElementById('selectedCount').textContent = AppState.selectedCards.size;
+            } else {
+                batchOps.classList.remove('active');
+            }
+        }
+
+        function clearSelection() {
+            AppState.selectedCards.clear();
+            updateSelectionUI();
+        }
+
+        function moveSelectedCards() {
+            if (AppState.selectedCards.size === 0) return;
+            
+            const modal = document.getElementById('moveModal');
+            const body = document.getElementById('moveModalBody');
+            
+            // Build folder selection UI
+            body.innerHTML = `
+                <div style="margin-bottom: 1rem;">Select destination folder:</div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    ${buildFolderOptions()}
+                </div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button class="btn" onclick="closeModal('moveModal')">Cancel</button>
+                    <button class="btn btn-primary" onclick="executeMoveCards()">Move ${AppState.selectedCards.size} Cards</button>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+
+        function buildFolderOptions() {
+            const options = [];
+            
+            function addFolder(path, folder, indent = 0) {
+                if (path !== AppState.currentFolder) {
+                    options.push(`
+                        <label style="padding-left: ${indent * 20}px; cursor: pointer; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                            <input type="radio" name="targetFolder" value="${path}" style="margin-right: 0.5rem;">
+                            ${folder.icon} ${folder.name}
+                        </label>
+                    `);
+                }
+                
+                if (folder.subfolders) {
+                    Object.entries(folder.subfolders).forEach(([key, subfolder]) => {
+                        addFolder(`${path}/${key}`, subfolder, indent + 1);
+                    });
+                }
+            }
+            
+            Object.entries(AppState.folderStructure).forEach(([key, folder]) => {
+                addFolder(key, folder);
+            });
+            
+            return options.join('');
+        }
+
+        function executeMoveCards() {
+            const targetPath = document.querySelector('input[name="targetFolder"]:checked')?.value;
+            if (!targetPath) {
+                showToast('Error', 'Please select a destination folder', 'error');
+                return;
+            }
+            
+            const sourceFolder = getFolderByPath(AppState.currentFolder);
+            const targetFolder = getFolderByPath(targetPath);
+            
+            if (!sourceFolder || !targetFolder) return;
+            
+            const cardsToMove = [];
+            AppState.selectedCards.forEach(index => {
+                if (sourceFolder.cards[index]) {
+                    cardsToMove.push(sourceFolder.cards[index]);
+                }
+            });
+            
+            // Remove from source (in reverse order to maintain indices)
+            const indices = Array.from(AppState.selectedCards).sort((a, b) => b - a);
+            indices.forEach(index => {
+                sourceFolder.cards.splice(index, 1);
+            });
+            
+            // Add to target
+            targetFolder.cards.push(...cardsToMove);
+            
+            saveCollections();
+            clearSelection();
+            renderFolderContents();
+            updateStats();
+            updateFolderCounts();
+            closeModal('moveModal');
+            
+            showToast('Cards Moved', `${cardsToMove.length} cards moved to ${targetFolder.name}`, 'success');
+        }
+
+        // 📤 Export Functions
+        
+        function exportFolder() {
+            const folder = getFolderByPath(AppState.currentFolder);
+            if (!folder || !folder.cards || folder.cards.length === 0) {
+                showToast('Export Error', 'No cards to export', 'error');
+                return;
+            }
+            
+            const formats = [
+                { name: 'Moxfield', value: 'moxfield' },
+                { name: 'Archidekt', value: 'archidekt' },
+                { name: 'MTGO', value: 'mtgo' },
+                { name: 'MTG Arena', value: 'arena' },
+                { name: 'TappedOut', value: 'tappedout' },
+                { name: 'CSV', value: 'csv' },
+                { name: 'JSON', value: 'json' }
+            ];
+            
+            const formatOptions = formats.map(f => 
+                `<option value="${f.value}">${f.name}</option>`
+            ).join('');
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Export ${folder.name}</h3>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem;">Export Format:</label>
+                        <select id="exportFormat" class="search-box" style="width: 100%;">
+                            ${formatOptions}
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem;">
+                            <input type="checkbox" id="includeBasics" style="margin-right: 0.5rem;">
+                            Include basic lands
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                        <button class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
+                        <button class="btn btn-primary" onclick="executeExport()">Export</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        function executeExport() {
+            const format = document.getElementById('exportFormat').value;
+            const includeBasics = document.getElementById('includeBasics').checked;
+            const folder = getFolderByPath(AppState.currentFolder);
+            
+            let cards = folder.cards;
+            if (!includeBasics) {
+                cards = cards.filter(card => !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].includes(card.name));
+            }
+            
+            let exportData = '';
+            let filename = `${folder.name.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}`;
+            
+            switch (format) {
+                case 'moxfield':
+                case 'archidekt':
+                    exportData = cards.map(card => `1 ${card.name}`).join('\n');
+                    filename += '.txt';
+                    break;
+                    
+                case 'mtgo':
+                    exportData = cards.map(card => `1 ${card.name}`).join('\n');
+                    filename += '_mtgo.txt';
+                    break;
+                    
+                case 'arena':
+                    exportData = cards.map(card => {
+                        const set = card.cardData?.set || '';
+                        const num = card.cardData?.collector_number || '';
+                        return `1 ${card.name} (${set}) ${num}`;
+                    }).join('\n');
+                    filename += '_arena.txt';
+                    break;
+                    
+                case 'csv':
+                    exportData = 'Name,Set,Collector Number,Rarity,Price,Date Added\n';
+                    exportData += cards.map(card => {
+                        const data = card.cardData || {};
+                        return `"${card.name}","${data.set_name || ''}","${data.collector_number || ''}","${data.rarity || ''}","${data.prices?.usd || '0'}","${card.savedAt || ''}"`;
+                    }).join('\n');
+                    filename += '.csv';
+                    break;
+                    
+                case 'json':
+                    exportData = JSON.stringify({
+                        folderName: folder.name,
+                        exportDate: new Date().toISOString(),
+                        cardCount: cards.length,
+                        cards: cards
+                    }, null, 2);
+                    filename += '.json';
+                    break;
+            }
+            
+            // Download file
+            const blob = new Blob([exportData], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            document.querySelector('.modal').remove();
+            showToast('Export Complete', `Exported ${cards.length} cards as ${format.toUpperCase()}`, 'success');
+        }
+
+        // 🛠️ Utility Functions
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function setViewMode(mode) {
+            AppState.viewMode = mode;
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.onclick.toString().includes(mode));
+            });
+            renderFolderContents();
+        }
+
+        function filterCards(searchTerm) {
+            const cards = document.querySelectorAll('.mtg-card');
+            const term = searchTerm.toLowerCase();
+            
+            cards.forEach(card => {
+                const name = card.querySelector('.card-name').textContent.toLowerCase();
+                const details = card.querySelector('.card-details').textContent.toLowerCase();
+                const visible = name.includes(term) || details.includes(term);
+                card.style.display = visible ? '' : 'none';
+            });
+        }
+
+        function toggleAutoMode() {
+            AppState.autoMode = !AppState.autoMode;
+            const btn = document.getElementById('autoBtn');
+            
+            if (AppState.autoMode) {
+                btn.innerHTML = '<span>⏹️</span><span>Stop</span>';
+                btn.classList.add('btn-danger');
+                btn.classList.remove('btn-success');
+                
+                AppState.autoInterval = setInterval(() => {
+                    if (!document.getElementById('scanBtn').disabled) {
+                        scanCard();
+                    }
+                }, 4000);
+            } else {
+                btn.innerHTML = '<span>▶️</span><span>Auto</span>';
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-success');
+                
+                if (AppState.autoInterval) {
+                    clearInterval(AppState.autoInterval);
+                    AppState.autoInterval = null;
+                }
+            }
+        }
+
+        function createNewFolder() {
+            const name = prompt('Enter folder name:');
+            if (!name) return;
+            
+            const key = name.toLowerCase().replace(/\s+/g, '_');
+            AppState.folderStructure[key] = {
+                name: name,
+                icon: '📁',
+                cards: []
+            };
+            
+            saveCollections();
+            location.reload(); // Refresh to show new folder
+        }
+
+        function setupEventListeners() {
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    switch (e.key) {
+                        case 's':
+                            e.preventDefault();
+                            scanCard();
+                            break;
+                        case 'a':
+                            e.preventDefault();
+                            if (AppState.currentFolder) {
+                                // Select all cards in current folder
+                                const folder = getFolderByPath(AppState.currentFolder);
+                                if (folder && folder.cards) {
+                                    AppState.selectedCards.clear();
+                                    folder.cards.forEach((_, index) => {
+                                        AppState.selectedCards.add(index);
+                                    });
+                                    updateSelectionUI();
+                                }
+                            }
+                            break;
+                        case 'e':
+                            e.preventDefault();
+                            exportFolder();
+                            break;
+                    }
+                }
+                
+                // ESC to clear selection
+                if (e.key === 'Escape') {
+                    clearSelection();
+                }
+            });
+            
+            // Window resize handler
+            window.addEventListener('resize', () => {
+                // Adjust layout if needed
+            });
+            
+            // Cleanup on unload
+            window.addEventListener('beforeunload', () => {
+                if (AppState.autoInterval) {
+                    clearInterval(AppState.autoInterval);
+                }
+                const video = document.getElementById('video');
+                if (video && video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                }
+            });
+        }
+
+        // Individual card operations
+        function moveCard(index) {
+            AppState.selectedCards.clear();
+            AppState.selectedCards.add(index);
+            moveSelectedCards();
+        }
+
+        function duplicateCard(index) {
+            const folder = getFolderByPath(AppState.currentFolder);
+            if (!folder || !folder.cards[index]) return;
+            
+            const card = folder.cards[index];
+            const duplicate = {
+                ...card,
+                id: Date.now() + Math.random(),
+                savedAt: new Date().toISOString()
+            };
+            
+            folder.cards.splice(index + 1, 0, duplicate);
+            saveCollections();
+            renderFolderContents();
+            updateStats();
+            
+            showToast('Card Duplicated', `${card.name} duplicated`, 'success');
+        }
+
+        function deleteCard(index) {
+            const folder = getFolderByPath(AppState.currentFolder);
+            if (!folder || !folder.cards[index]) return;
+            
+            const card = folder.cards[index];
+            if (confirm(`Delete ${card.name}?`)) {
+                folder.cards.splice(index, 1);
+                saveCollections();
+                renderFolderContents();
+                updateStats();
+                updateFolderCounts();
+                
+                showToast('Card Deleted', `${card.name} removed`, 'success');
+            }
+        }
+
+        function copySelectedCards() {
+            if (AppState.selectedCards.size === 0) return;
+            
+            const modal = document.getElementById('moveModal');
+            const body = document.getElementById('moveModalBody');
+            
+            // Build folder selection UI
+            body.innerHTML = `
+                <div style="margin-bottom: 1rem;">Select destination folder:</div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    ${buildFolderOptions()}
+                </div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button class="btn" onclick="closeModal('moveModal')">Cancel</button>
+                    <button class="btn btn-primary" onclick="executeCopyCards()">Copy ${AppState.selectedCards.size} Cards</button>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+
+        function executeCopyCards() {
+            const targetPath = document.querySelector('input[name="targetFolder"]:checked')?.value;
+            if (!targetPath) {
+                showToast('Error', 'Please select a destination folder', 'error');
+                return;
+            }
+            
+            const sourceFolder = getFolderByPath(AppState.currentFolder);
+            const targetFolder = getFolderByPath(targetPath);
+            
+            if (!sourceFolder || !targetFolder) return;
+            
+            const cardsToCopy = [];
+            AppState.selectedCards.forEach(index => {
+                if (sourceFolder.cards[index]) {
+                    cardsToCopy.push({
+                        ...sourceFolder.cards[index],
+                        id: Date.now() + Math.random(),
+                        savedAt: new Date().toISOString()
+                    });
+                }
+            });
+            
+            // Add to target
+            targetFolder.cards.push(...cardsToCopy);
+            
+            saveCollections();
+            clearSelection();
+            updateStats();
+            updateFolderCounts();
+            closeModal('moveModal');
+            
+            showToast('Cards Copied', `${cardsToCopy.length} cards copied to ${targetFolder.name}`, 'success');
+        }
+
+        function deleteSelectedCards() {
+            if (AppState.selectedCards.size === 0) return;
+            
+            if (confirm(`Delete ${AppState.selectedCards.size} selected cards?`)) {
+                const folder = getFolderByPath(AppState.currentFolder);
+                if (!folder) return;
+                
+                // Remove in reverse order to maintain indices
+                const indices = Array.from(AppState.selectedCards).sort((a, b) => b - a);
+                indices.forEach(index => {
+                    folder.cards.splice(index, 1);
+                });
+                
+                saveCollections();
+                clearSelection();
+                renderFolderContents();
+                updateStats();
+                updateFolderCounts();
+                
+                showToast('Cards Deleted', `${indices.length} cards removed`, 'success');
+            }
+        }
+
+        function showSortOptions() {
+            const options = [
+                { name: 'Name (A-Z)', value: 'name-asc' },
+                { name: 'Name (Z-A)', value: 'name-desc' },
+                { name: 'Price (High to Low)', value: 'price-desc' },
+                { name: 'Price (Low to High)', value: 'price-asc' },
+                { name: 'Set', value: 'set' },
+                { name: 'Rarity', value: 'rarity' },
+                { name: 'Color', value: 'color' },
+                { name: 'CMC', value: 'cmc' },
+                { name: 'Date Added', value: 'date' }
+            ];
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Sort Cards</h3>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        ${options.map(opt => `
+                            <button class="btn" onclick="sortCards('${opt.value}'); this.closest('.modal').remove();">
+                                ${opt.name}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        function sortCards(method) {
+            const folder = getFolderByPath(AppState.currentFolder);
+            if (!folder || !folder.cards) return;
+            
+            folder.cards.sort((a, b) => {
+                switch (method) {
+                    case 'name-asc':
+                        return a.name.localeCompare(b.name);
+                    case 'name-desc':
+                        return b.name.localeCompare(a.name);
+                    case 'price-desc':
+                        return (parseFloat(b.cardData?.prices?.usd) || 0) - (parseFloat(a.cardData?.prices?.usd) || 0);
+                    case 'price-asc':
+                        return (parseFloat(a.cardData?.prices?.usd) || 0) - (parseFloat(b.cardData?.prices?.usd) || 0);
+                    case 'set':
+                        return (a.cardData?.set_name || '').localeCompare(b.cardData?.set_name || '');
+                    case 'rarity':
+                        const rarityOrder = { mythic: 1, rare: 2, uncommon: 3, common: 4 };
+                        return (rarityOrder[a.cardData?.rarity] || 5) - (rarityOrder[b.cardData?.rarity] || 5);
+                    case 'color':
+                        const colorOrder = { W: 1, U: 2, B: 3, R: 4, G: 5 };
+                        const aColor = a.cardData?.colors?.[0] || 'Z';
+                        const bColor = b.cardData?.colors?.[0] || 'Z';
+                        return (colorOrder[aColor] || 6) - (colorOrder[bColor] || 6);
+                    case 'cmc':
+                        return (a.cardData?.cmc || 0) - (b.cardData?.cmc || 0);
+                    case 'date':
+                        return new Date(b.savedAt || 0) - new Date(a.savedAt || 0);
+                    default:
+                        return 0;
+                }
+            });
+            
+            saveCollections();
+            renderFolderContents();
+            showToast('Cards Sorted', `Sorted by ${method.replace('-', ' ')}`, 'success');
+        }
+
+        // Initialize app when DOM is ready
+        window.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "mtg-scanner-pro",
+  "version": "1.4.0",
+  "description": "AI-powered Magic: The Gathering card scanner with real-time pricing",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'",
+    "deploy": "vercel --prod",
+    "test": "echo 'Open test.html in browser'"
+  },
+  "keywords": [
+    "mtg",
+    "magic the gathering",
+    "card scanner",
+    "ai",
+    "collection manager"
+  ],
+  "author": "MTG Scanner Pro",
+  "license": "Proprietary",
+  "homepage": "https://www.mtgscanner.com",
+  "repository": {
+    "type": "git",
+    "url": "private"
+  },
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

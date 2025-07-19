@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Scanner Pro - AI-Powered Card Recognition</title>
+    <meta name="description" content="Instantly identify and price Magic: The Gathering cards with 95% accuracy using AI. Manage collections, track prices, and export to popular formats.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Stripe -->
+    <script src="https://js.stripe.com/v3/"></script>
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f1e;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Header Styles */
+        .header {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(74, 144, 226, 0.3);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4a90e2;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.5rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #4a90e2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #357abd;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #4a90e2;
+            border: 1px solid #4a90e2;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(74, 144, 226, 0.1);
+        }
+
+        /* Auth Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: #1a1a2e;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+            border: 1px solid rgba(74, 144, 226, 0.3);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .modal-close:hover {
+            color: #fff;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #ccc;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            background: #2a2a3e;
+            border: 1px solid rgba(74, 144, 226, 0.3);
+            border-radius: 6px;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+
+        /* User Menu */
+        .user-menu {
+            display: none;
+            position: relative;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .credits-badge {
+            background: #28a745;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background: #1a1a2e;
+            border: 1px solid rgba(74, 144, 226, 0.3);
+            border-radius: 8px;
+            min-width: 200px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .user-dropdown a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: #ccc;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .user-dropdown a:hover {
+            background: rgba(74, 144, 226, 0.1);
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-top: 80px;
+            padding: 2rem;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Scanner Section */
+        .scanner-section {
+            background: rgba(26, 26, 46, 0.6);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(74, 144, 226, 0.2);
+        }
+
+        .video-container {
+            position: relative;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .scan-button {
+            display: block;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .scan-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .scan-button.no-credits {
+            background: #dc3545;
+        }
+
+        /* Status Message */
+        .status-message {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 3000;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translate(-50%, -20px);
+                opacity: 0;
+            }
+            to {
+                transform: translate(-50%, 0);
+                opacity: 1;
+            }
+        }
+
+        .status-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .status-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .status-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        /* Card Result */
+        .card-result {
+            display: none;
+            background: rgba(42, 42, 62, 0.6);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-top: 2rem;
+            border: 1px solid rgba(74, 144, 226, 0.2);
+        }
+
+        .card-details {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .card-image {
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-info h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #4a90e2;
+        }
+
+        .card-meta {
+            display: grid;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-meta-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-meta-label {
+            color: #888;
+        }
+
+        .price-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #28a745;
+            margin: 1rem 0;
+        }
+
+        /* Pricing Section */
+        .pricing-section {
+            background: rgba(26, 26, 46, 0.6);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(74, 144, 226, 0.2);
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .pricing-card {
+            background: rgba(42, 42, 62, 0.6);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            border: 1px solid rgba(74, 144, 226, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-5px);
+            border-color: #4a90e2;
+            box-shadow: 0 10px 30px rgba(74, 144, 226, 0.3);
+        }
+
+        .pricing-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #4a90e2;
+        }
+
+        .price-amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .price-credits {
+            color: #888;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+
+        .pricing-features li {
+            padding: 0.5rem 0;
+            color: #ccc;
+        }
+
+        .pricing-features li i {
+            color: #28a745;
+            margin-right: 0.5rem;
+        }
+
+        /* Collections Section */
+        .collections-section {
+            background: rgba(26, 26, 46, 0.6);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(74, 144, 226, 0.2);
+        }
+
+        .collection-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(42, 42, 62, 0.6);
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4a90e2;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                padding: 0 1rem;
+            }
+
+            .card-details {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-buttons {
+                gap: 0.5rem;
+            }
+
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .highlight {
+            animation: highlight 1s ease;
+        }
+
+        @keyframes highlight {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">
+                <i class="fas fa-qrcode"></i>
+                MTG Scanner Pro
+            </a>
+            
+            <nav class="nav-buttons">
+                <!-- Login Button (shown when logged out) -->
+                <button id="loginBtn" class="btn btn-primary" onclick="showAuthModal()">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+                
+                <!-- User Menu (shown when logged in) -->
+                <div id="userMenu" class="user-menu">
+                    <div class="user-info">
+                        <span class="credits-badge">
+                            <i class="fas fa-coins"></i> 
+                            <span id="creditsCount">0</span> scans
+                        </span>
+                        <button class="btn btn-secondary" onclick="toggleUserDropdown()">
+                            <i class="fas fa-user"></i>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    
+                    <div id="userDropdown" class="user-dropdown">
+                        <a href="#" onclick="showCollections()">
+                            <i class="fas fa-folder"></i> My Collections
+                        </a>
+                        <a href="#" onclick="showScanHistory()">
+                            <i class="fas fa-history"></i> Scan History
+                        </a>
+                        <a href="#" onclick="showPriceAlerts()">
+                            <i class="fas fa-bell"></i> Price Alerts
+                        </a>
+                        <a href="#" onclick="showProfile()">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                        <hr style="margin: 0; border-color: rgba(255,255,255,0.1);">
+                        <a href="#" onclick="signOut()" style="color: #dc3545;">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Status Message -->
+    <div id="statusMessage" class="status-message"></div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Scanner Section -->
+        <section class="scanner-section">
+            <h2 style="text-align: center; margin-bottom: 2rem;">
+                <i class="fas fa-camera"></i> Scan Your Cards
+            </h2>
+            
+            <div class="video-container">
+                <video id="video" autoplay playsinline></video>
+            </div>
+            
+            <button id="analyzeBtn" class="btn btn-primary scan-button" onclick="analyzeCard()" disabled>
+                <i class="fas fa-sign-in-alt"></i> Sign in to scan
+            </button>
+            
+            <!-- Card Result -->
+            <div id="cardResult" class="card-result">
+                <div class="card-details">
+                    <img id="cardImage" class="card-image" src="" alt="Card">
+                    <div class="card-info">
+                        <h3 id="cardName">Card Name</h3>
+                        <div class="card-meta">
+                            <div class="card-meta-item">
+                                <span class="card-meta-label">Set:</span>
+                                <span id="cardSet">-</span>
+                            </div>
+                            <div class="card-meta-item">
+                                <span class="card-meta-label">Rarity:</span>
+                                <span id="cardRarity">-</span>
+                            </div>
+                            <div class="card-meta-item">
+                                <span class="card-meta-label">Type:</span>
+                                <span id="cardType">-</span>
+                            </div>
+                        </div>
+                        <div class="price-display">
+                            $<span id="cardPrice">0.00</span>
+                        </div>
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn btn-primary" onclick="saveToCollection()">
+                                <i class="fas fa-save"></i> Save to Collection
+                            </button>
+                            <button class="btn btn-secondary" onclick="createPriceAlert()">
+                                <i class="fas fa-bell"></i> Set Price Alert
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pricing Section -->
+        <section id="pricingSection" class="pricing-section">
+            <h2 style="text-align: center; margin-bottom: 1rem;">
+                <i class="fas fa-shopping-cart"></i> Get More Scans
+            </h2>
+            <p style="text-align: center; color: #888; margin-bottom: 2rem;">
+                Choose a package that fits your needs. All scans never expire!
+            </p>
+            
+            <div class="pricing-grid">
+                <!-- Starter Pack -->
+                <div class="pricing-card">
+                    <h3>Starter Pack</h3>
+                    <div class="price-amount">$2.99</div>
+                    <div class="price-credits">50 scans</div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Perfect for casual players</li>
+                        <li><i class="fas fa-check"></i> Never expires</li>
+                        <li><i class="fas fa-check"></i> Instant delivery</li>
+                    </ul>
+                    <a href="https://buy.stripe.com/fZu7sEaPYdmvcnl8mA48005" class="btn btn-primary" style="width: 100%;">
+                        Buy Now
+                    </a>
+                </div>
+                
+                <!-- Value Pack -->
+                <div class="pricing-card" style="border-color: #28a745;">
+                    <h3 style="color: #28a745;">Best Value</h3>
+                    <div class="price-amount">$9.99</div>
+                    <div class="price-credits">200 scans</div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Most popular choice</li>
+                        <li><i class="fas fa-check"></i> Save 25% per scan</li>
+                        <li><i class="fas fa-check"></i> Perfect for collectors</li>
+                    </ul>
+                    <a href="https://buy.stripe.com/aFadR2bU2cirevt6es48006" class="btn btn-primary" style="width: 100%; background: #28a745;">
+                        Buy Now
+                    </a>
+                </div>
+                
+                <!-- Power Pack -->
+                <div class="pricing-card">
+                    <h3>Power User</h3>
+                    <div class="price-amount">$19.99</div>
+                    <div class="price-credits">500 scans</div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Best price per scan</li>
+                        <li><i class="fas fa-check"></i> For serious traders</li>
+                        <li><i class="fas fa-check"></i> Bulk processing</li>
+                    </ul>
+                    <a href="https://buy.stripe.com/bJe7sE9LU1DN2MLeKY48007" class="btn btn-primary" style="width: 100%;">
+                        Buy Now
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Collections Overview -->
+        <section class="collections-section" id="collectionsSection" style="display: none;">
+            <h2 style="margin-bottom: 2rem;">
+                <i class="fas fa-folder"></i> My Collections
+            </h2>
+            
+            <div class="collection-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalCards">0</div>
+                    <div class="stat-label">Total Cards</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">$<span id="totalValue">0</span></div>
+                    <div class="stat-label">Total Value</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalScans">0</div>
+                    <div class="stat-label">Cards Scanned</div>
+                </div>
+            </div>
+            
+            <div id="collectionsList"></div>
+        </section>
+    </main>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeAuthModal()">&times;</span>
+            
+            <h2 id="authTitle" style="margin-bottom: 1.5rem; text-align: center;">Sign In to MTG Scanner</h2>
+            
+            <form id="authForm" onsubmit="handleAuth(event)">
+                <div class="form-group">
+                    <label for="authEmail">Email</label>
+                    <input type="email" id="authEmail" required placeholder="your@email.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="authPassword">Password</label>
+                    <input type="password" id="authPassword" required placeholder="••••••••" minlength="6">
+                </div>
+                
+                <div id="signupExtras" style="display: none;">
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="newsletterOptIn" checked>
+                            Subscribe to newsletter (+50 bonus scans!)
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                    <span id="authButtonText">Sign In</span>
+                </button>
+            </form>
+            
+            <p style="text-align: center; margin-top: 1.5rem; color: #888;">
+                <span id="authToggleText">Don't have an account?</span>
+                <a href="#" onclick="toggleAuthMode()" style="color: #4a90e2; text-decoration: none;">
+                    <span id="authToggleLink">Sign Up</span>
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // SUPABASE INITIALIZATION
+        // ============================================
+        const SUPABASE_URL = 'https://tovkhrirdsrhuwltokdj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdmtocmlyZHNyaHV3bHRva2RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2MzQ3OTYsImV4cCI6MjA2NzIxMDc5Nn0.B8P1fEdj2KUeCGOkCh_txi6XoYtzjAgvaeCfAZ7D4Js';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================
+        // GLOBAL STATE
+        // ============================================
+        let currentUser = null;
+        let userCredits = 0;
+        let isScanning = false;
+        let currentCardData = null;
+        let isSignUp = false;
+
+        // ============================================
+        // ENHANCED PROMPT FOR AI
+        // ============================================
+        const ENHANCED_PROMPT = `You are an expert Magic: The Gathering card identifier. Analyze this image and identify the card with extreme precision.
+
+CRITICAL: You must ALWAYS respond in this EXACT format with these EXACT labels:
+
+CARD_NAME: [exact card name]
+SET_CODE: [three-letter set code]
+SET_NAME: [full set name]
+CONFIDENCE: [0-100 number only]
+
+Important guidelines:
+- Be very specific about the edition/set by looking at the set symbol, border color, and card frame
+- For cards with multiple printings, identify the exact version shown
+- Look for set symbols, copyright dates, artist credits, and collector numbers
+- Consider special frames (showcase, borderless, extended art)
+- Double-check your identification before responding
+
+ALWAYS use the exact format above. Never add extra text or explanations.`;
+
+        // ============================================
+        // CAMERA SETUP
+        // ============================================
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    } 
+                });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                console.log('✅ Camera initialized');
+            } catch (err) {
+                console.error('❌ Camera error:', err);
+                showStatus('Camera access denied. Please enable camera permissions.', 'error');
+            }
+        }
+
+        // ============================================
+        // AUTHENTICATION FUNCTIONS
+        // ============================================
+        async function getCurrentUser() {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                currentUser = user;
+                return user;
+            } catch (error) {
+                console.error('Auth check error:', error);
+                return null;
+            }
+        }
+
+        async function signUp(email, password, newsletter = false) {
+            try {
+                showStatus('Creating account...', 'info');
+                
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password
+                });
+
+                if (error) throw error;
+
+                if (data?.user) {
+                    // Update newsletter preference if checked
+                    if (newsletter) {
+                        await supabase
+                            .from('user_preferences')
+                            .update({ newsletter_subscribed: true })
+                            .eq('user_id', data.user.id);
+                        
+                        // Add 50 bonus credits for newsletter
+                        await supabase.rpc('add_scan_credits', { 
+                            p_user_id: data.user.id, 
+                            p_credits: 50 
+                        });
+                    }
+
+                    showStatus('✅ Account created! Welcome to MTG Scanner Pro!', 'success');
+                    await updateAuthUI();
+                    closeAuthModal();
+                } else {
+                    showStatus('Please check your email to confirm your account', 'info');
+                }
+
+            } catch (error) {
+                console.error('Signup error:', error);
+                showStatus(error.message || 'Signup failed', 'error');
+            }
+        }
+
+        async function signIn(email, password) {
+            try {
+                showStatus('Signing in...', 'info');
+                
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) throw error;
+
+                showStatus('✅ Welcome back!', 'success');
+                await updateAuthUI();
+                closeAuthModal();
+
+            } catch (error) {
+                console.error('Sign in error:', error);
+                showStatus(error.message || 'Sign in failed', 'error');
+            }
+        }
+
+        async function signOut() {
+            try {
+                const { error } = await supabase.auth.signOut();
+                if (error) throw error;
+                
+                currentUser = null;
+                userCredits = 0;
+                showStatus('Signed out successfully', 'info');
+                await updateAuthUI();
+                
+            } catch (error) {
+                console.error('Sign out error:', error);
+                showStatus('Sign out failed', 'error');
+            }
+        }
+
+        // ============================================
+        // UI FUNCTIONS
+        // ============================================
+        function showAuthModal() {
+            document.getElementById('authModal').style.display = 'flex';
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').style.display = 'none';
+            document.getElementById('authForm').reset();
+        }
+
+        function toggleAuthMode() {
+            isSignUp = !isSignUp;
+            document.getElementById('authTitle').textContent = isSignUp ? 'Sign Up for MTG Scanner' : 'Sign In to MTG Scanner';
+            document.getElementById('authButtonText').textContent = isSignUp ? 'Sign Up' : 'Sign In';
+            document.getElementById('authToggleText').textContent = isSignUp ? 'Already have an account?' : "Don't have an account?";
+            document.getElementById('authToggleLink').textContent = isSignUp ? 'Sign In' : 'Sign Up';
+            document.getElementById('signupExtras').style.display = isSignUp ? 'block' : 'none';
+        }
+
+        async function handleAuth(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+            const newsletter = document.getElementById('newsletterOptIn')?.checked || false;
+            
+            if (isSignUp) {
+                await signUp(email, password, newsletter);
+            } else {
+                await signIn(email, password);
+            }
+        }
+
+        function toggleUserDropdown() {
+            const dropdown = document.getElementById('userDropdown');
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message status-${type}`;
+            statusEl.style.display = 'block';
+            
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
+        }
+
+        async function updateAuthUI() {
+            const user = await getCurrentUser();
+            
+            if (user) {
+                // User is logged in
+                document.getElementById('loginBtn').style.display = 'none';
+                document.getElementById('userMenu').style.display = 'block';
+                
+                // Get user credits
+                try {
+                    const { data: prefs } = await supabase
+                        .from('user_preferences')
+                        .select('scan_credits')
+                        .eq('user_id', user.id)
+                        .single();
+                    
+                    userCredits = prefs?.scan_credits || 0;
+                    document.getElementById('creditsCount').textContent = userCredits;
+                    
+                    // Update scan button
+                    const scanBtn = document.getElementById('analyzeBtn');
+                    if (userCredits > 0) {
+                        scanBtn.disabled = false;
+                        scanBtn.innerHTML = `<i class="fas fa-camera"></i> Identify Card (${userCredits} scans)`;
+                        scanBtn.className = 'btn btn-primary scan-button';
+                        scanBtn.onclick = analyzeCard;
+                    } else {
+                        scanBtn.disabled = false;
+                        scanBtn.innerHTML = '<i class="fas fa-shopping-cart"></i> Buy More Scans';
+                        scanBtn.className = 'btn btn-primary scan-button no-credits';
+                        scanBtn.onclick = () => {
+                            document.getElementById('pricingSection').scrollIntoView({ behavior: 'smooth' });
+                            document.getElementById('pricingSection').classList.add('highlight');
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error fetching credits:', error);
+                }
+                
+            } else {
+                // User is logged out
+                document.getElementById('loginBtn').style.display = 'block';
+                document.getElementById('userMenu').style.display = 'none';
+                
+                const scanBtn = document.getElementById('analyzeBtn');
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign in to scan';
+                scanBtn.className = 'btn btn-primary scan-button';
+                scanBtn.onclick = showAuthModal;
+            }
+        }
+
+        // ============================================
+        // CARD SCANNING FUNCTIONS
+        // ============================================
+        async function analyzeCard() {
+            if (!currentUser) {
+                showAuthModal();
+                return;
+            }
+
+            if (userCredits <= 0) {
+                showStatus('No scan credits remaining!', 'error');
+                document.getElementById('pricingSection').scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+
+            if (isScanning) {
+                showStatus('Already scanning...', 'warning');
+                return;
+            }
+
+            try {
+                isScanning = true;
+                showStatus('Analyzing card...', 'info');
+                
+                // Capture image
+                const canvas = document.createElement('canvas');
+                const video = document.getElementById('video');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const imageData = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+
+                // Get current session for auth
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error('Not authenticated');
+
+                // Call backend API (Railway)
+                const response = await fetch('https://mtg-scanner-backend-production-production.up.railway.app/api/analyze-card', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({
+                        imageData: imageData,
+                        prompt: ENHANCED_PROMPT
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to analyze card');
+                }
+
+                const result = await response.json();
+                const aiResponse = result.data;
+
+                // Parse AI response
+                const cardName = aiResponse.match(/CARD_NAME:\s*(.+?)(?:\n|$)/)?.[1]?.trim();
+                const setCode = aiResponse.match(/SET_CODE:\s*(.+?)(?:\n|$)/)?.[1]?.trim();
+                const confidence = parseInt(aiResponse.match(/CONFIDENCE:\s*(\d+)/)?.[1] || '0');
+
+                if (!cardName || confidence < 70) {
+                    throw new Error('Could not identify card clearly. Please try again.');
+                }
+
+                // Use scan credit
+                const { data: creditUsed, error: creditError } = await supabase
+                    .rpc('use_scan_credit', { p_user_id: currentUser.id });
+
+                if (creditError || !creditUsed) {
+                    throw new Error('Failed to use scan credit');
+                }
+
+                // Update credits display
+                userCredits--;
+                document.getElementById('creditsCount').textContent = userCredits;
+                updateAuthUI();
+
+                // Log scan
+                await supabase.from('scan_history').insert({
+                    user_id: currentUser.id,
+                    card_name: cardName,
+                    set_code: setCode,
+                    confidence_score: confidence / 100,
+                    scan_successful: true
+                });
+
+                // Fetch from Scryfall
+                const cardData = await fetchFromScryfall(cardName, setCode);
+                if (cardData) {
+                    currentCardData = cardData;
+                    displayCardResult(cardData);
+                    showStatus('✅ Card identified successfully!', 'success');
+                }
+
+            } catch (error) {
+                console.error('Scan error:', error);
+                showStatus(error.message || 'Scan failed. Please try again.', 'error');
+                
+                // Log failed scan
+                if (currentUser) {
+                    await supabase.from('scan_history').insert({
+                        user_id: currentUser.id,
+                        scan_successful: false,
+                        error_message: error.message
+                    });
+                }
+            } finally {
+                isScanning = false;
+            }
+        }
+
+        async function fetchFromScryfall(cardName, setCode) {
+            try {
+                // Try exact match first
+                let url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`;
+                if (setCode) {
+                    url += `&set=${encodeURIComponent(setCode)}`;
+                }
+
+                let response = await fetch(url);
+                
+                // If exact match fails, try fuzzy search
+                if (!response.ok) {
+                    url = `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`;
+                    if (setCode) {
+                        url += `&set=${encodeURIComponent(setCode)}`;
+                    }
+                    response = await fetch(url);
+                }
+
+                if (!response.ok) {
+                    throw new Error('Card not found');
+                }
+
+                return await response.json();
+                
+            } catch (error) {
+                console.error('Scryfall error:', error);
+                showStatus('Could not fetch card details', 'error');
+                return null;
+            }
+        }
+
+        function displayCardResult(card) {
+            document.getElementById('cardResult').style.display = 'block';
+            document.getElementById('cardImage').src = card.image_uris?.normal || card.image_uris?.large || '';
+            document.getElementById('cardName').textContent = card.name;
+            document.getElementById('cardSet').textContent = `${card.set_name} (${card.set.toUpperCase()})`;
+            document.getElementById('cardRarity').textContent = card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1);
+            document.getElementById('cardType').textContent = card.type_line;
+            document.getElementById('cardPrice').textContent = card.prices?.usd || '0.00';
+            
+            // Scroll to result
+            document.getElementById('cardResult').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function saveToCollection() {
+            if (!currentUser || !currentCardData) return;
+
+            try {
+                // Get default collection
+                const { data: collections } = await supabase
+                    .from('collections')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('name', 'My Collection')
+                    .single();
+
+                if (!collections) {
+                    showStatus('No default collection found', 'error');
+                    return;
+                }
+
+                // Save card
+                const { error } = await supabase
+                    .from('saved_cards')
+                    .upsert({
+                        user_id: currentUser.id,
+                        collection_id: collections.id,
+                        scryfall_id: currentCardData.id,
+                        card_name: currentCardData.name,
+                        set_code: currentCardData.set,
+                        set_name: currentCardData.set_name,
+                        collector_number: currentCardData.collector_number,
+                        current_price: parseFloat(currentCardData.prices?.usd || 0),
+                        price_when_added: parseFloat(currentCardData.prices?.usd || 0),
+                        image_url: currentCardData.image_uris?.normal,
+                        scryfall_uri: currentCardData.scryfall_uri,
+                        condition: 'NM',
+                        foil: false,
+                        quantity: 1
+                    }, {
+                        onConflict: 'collection_id,scryfall_id,condition,foil'
+                    });
+
+                if (error) throw error;
+
+                showStatus('✅ Card saved to collection!', 'success');
+
+            } catch (error) {
+                console.error('Save error:', error);
+                showStatus('Failed to save card', 'error');
+            }
+        }
+
+        async function createPriceAlert() {
+            if (!currentUser || !currentCardData) return;
+
+            try {
+                const { error } = await supabase
+                    .from('price_alerts')
+                    .insert({
+                        user_id: currentUser.id,
+                        card_name: currentCardData.name,
+                        scryfall_id: currentCardData.id,
+                        alert_type: 'both',
+                        threshold_percent: 1.9,
+                        initial_price: parseFloat(currentCardData.prices?.usd || 0),
+                        last_price: parseFloat(currentCardData.prices?.usd || 0)
+                    });
+
+                if (error) throw error;
+
+                showStatus('✅ Price alert created!', 'success');
+
+            } catch (error) {
+                console.error('Price alert error:', error);
+                showStatus('Failed to create price alert', 'error');
+            }
+        }
+
+        // ============================================
+        // PLACEHOLDER FUNCTIONS
+        // ============================================
+        function showCollections() {
+            showStatus('Collections feature coming soon!', 'info');
+            toggleUserDropdown();
+        }
+
+        function showScanHistory() {
+            showStatus('Scan history feature coming soon!', 'info');
+            toggleUserDropdown();
+        }
+
+        function showPriceAlerts() {
+            showStatus('Price alerts feature coming soon!', 'info');
+            toggleUserDropdown();
+        }
+
+        function showProfile() {
+            showStatus('Profile settings coming soon!', 'info');
+            toggleUserDropdown();
+        }
+
+        // ============================================
+        // HANDLE STRIPE REDIRECT
+        // ============================================
+        async function handleStripeRedirect() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.get('scan_purchase') === 'success') {
+                const packageType = urlParams.get('package');
+                const scanCount = parseInt(urlParams.get('count'));
+                
+                if (currentUser && packageType && scanCount) {
+                    showStatus(`🎉 ${scanCount} scan credits added to your account!`, 'success');
+                    
+                    // Refresh credits
+                    await updateAuthUI();
+                }
+                
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        window.addEventListener('load', async () => {
+            console.log('🚀 MTG Scanner Pro initializing...');
+            
+            // Initialize auth
+            await updateAuthUI();
+            
+            // Listen for auth changes
+            supabase.auth.onAuthStateChange(async (event, session) => {
+                console.log('Auth event:', event);
+                if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+                    await updateAuthUI();
+                }
+            });
+            
+            // Setup camera
+            await setupCamera();
+            
+            // Handle Stripe redirect
+            await handleStripeRedirect();
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#userMenu')) {
+                    document.getElementById('userDropdown').style.display = 'none';
+                }
+            });
+            
+            // Close auth modal when clicking outside
+            document.getElementById('authModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('authModal')) {
+                    closeAuthModal();
+                }
+            });
+            
+            console.log('✅ MTG Scanner Pro ready!');
+        });
+    </script>
+</body>
+</html>

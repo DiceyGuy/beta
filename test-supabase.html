@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Scanner - Supabase Test (All-in-One)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        .success {
+            color: #28a745;
+            background: #d4edda;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            color: #004085;
+            background: #d1ecf1;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .user-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 MTG Scanner - Supabase Test Page (All-in-One)</h1>
+    
+    <div id="statusMessage"></div>
+
+    <!-- Connection Test -->
+    <div class="test-section">
+        <h2>1️⃣ Connection Test</h2>
+        <button onclick="testSupabaseConnection()">Test Connection</button>
+        <div id="connectionResult"></div>
+    </div>
+
+    <!-- Auth Test -->
+    <div class="test-section">
+        <h2>2️⃣ Authentication Test</h2>
+        <div id="authStatus"></div>
+        
+        <div id="loginForm" style="display: none;">
+            <h3>Sign Up / Sign In</h3>
+            <input type="email" id="email" placeholder="Email" value="test@example.com">
+            <input type="password" id="password" placeholder="Password" value="testpassword123">
+            <label>
+                <input type="checkbox" id="newsletter"> Subscribe to newsletter (+50 bonus scans!)
+            </label>
+            <br><br>
+            <button onclick="signUpTest()">Sign Up (New User)</button>
+            <button onclick="signInTest()">Sign In (Existing User)</button>
+            <button onclick="signOutTest()">Sign Out</button>
+        </div>
+
+        <div id="userInfo" style="display: none;" class="user-info"></div>
+    </div>
+
+    <!-- Credits Test -->
+    <div class="test-section">
+        <h2>3️⃣ Scan Credits Test</h2>
+        <div id="creditsInfo"></div>
+        <button onclick="checkCredits()">Check Credits</button>
+        <button onclick="useCredit()">Use 1 Credit (Simulate Scan)</button>
+    </div>
+
+    <!-- Collection Test -->
+    <div class="test-section">
+        <h2>4️⃣ Collection Test</h2>
+        <button onclick="checkCollections()">View My Collections</button>
+        <button onclick="addTestCard()">Add Test Card</button>
+        <div id="collectionInfo"></div>
+    </div>
+
+    <script>
+        // ============================================
+        // SUPABASE SETUP - YOUR CREDENTIALS
+        // ============================================
+        const SUPABASE_URL = 'https://tovkhrirdsrhuwltokdj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdmtocmlyZHNyaHV3bHRva2RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2MzQ3OTYsImV4cCI6MjA2NzIxMDc5Nn0.B8P1fEdj2KUeCGOkCh_txi6XoYtzjAgvaeCfAZ7D4Js';
+
+        // Initialize Supabase
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('🚀 Supabase initialized');
+
+        // ============================================
+        // HELPER FUNCTIONS
+        // ============================================
+        
+        function showMessage(message, type = 'info') {
+            const msgDiv = document.getElementById('statusMessage');
+            msgDiv.className = type;
+            msgDiv.innerHTML = message;
+            setTimeout(() => msgDiv.innerHTML = '', 5000);
+        }
+
+        async function getCurrentUser() {
+            const { data: { user } } = await supabase.auth.getUser();
+            return user;
+        }
+
+        async function getUserPreferences(userId) {
+            try {
+                const { data, error } = await supabase
+                    .from('user_preferences')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .single();
+
+                if (error) throw error;
+                return data;
+            } catch (error) {
+                console.error('Error fetching preferences:', error);
+                return null;
+            }
+        }
+
+        // ============================================
+        // TEST FUNCTIONS
+        // ============================================
+
+        // 1. Test Connection
+        async function testSupabaseConnection() {
+            console.log('Testing connection...');
+            try {
+                const { data, error } = await supabase
+                    .from('collections')
+                    .select('count')
+                    .limit(1);
+                
+                const div = document.getElementById('connectionResult');
+                if (error) {
+                    console.error('Connection error:', error);
+                    div.innerHTML = `<div class="error">❌ Connection failed: ${error.message}</div>`;
+                } else {
+                    console.log('Connection successful!');
+                    div.innerHTML = '<div class="success">✅ Connected to Supabase!</div>';
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                document.getElementById('connectionResult').innerHTML = `<div class="error">❌ Error: ${err.message}</div>`;
+            }
+        }
+
+        // 2. Auth Functions
+        async function updateAuthUI() {
+            const user = await getCurrentUser();
+            const authDiv = document.getElementById('authStatus');
+            const loginForm = document.getElementById('loginForm');
+            const userInfo = document.getElementById('userInfo');
+
+            if (user) {
+                authDiv.innerHTML = '<div class="success">✅ Logged In</div>';
+                loginForm.style.display = 'none';
+                userInfo.style.display = 'block';
+                
+                const prefs = await getUserPreferences(user.id);
+                userInfo.innerHTML = `
+                    <strong>User:</strong> ${user.email}<br>
+                    <strong>ID:</strong> ${user.id}<br>
+                    <strong>Credits:</strong> ${prefs?.scan_credits || 0}<br>
+                    <strong>Newsletter:</strong> ${prefs?.newsletter_subscribed ? 'Yes' : 'No'}<br>
+                    <strong>Total Scans:</strong> ${prefs?.total_scans_used || 0}
+                `;
+            } else {
+                authDiv.innerHTML = '<div class="info">Not logged in</div>';
+                loginForm.style.display = 'block';
+                userInfo.style.display = 'none';
+            }
+        }
+
+        async function signUpTest() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const newsletter = document.getElementById('newsletter').checked;
+
+            showMessage('Signing up...', 'info');
+            
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password
+                });
+
+                if (error) throw error;
+
+                if (data?.user?.identities?.length === 0) {
+                    showMessage('✅ Account created! Check your email to confirm.', 'success');
+                } else {
+                    showMessage('✅ Signed up successfully!', 'success');
+                    if (newsletter && data.user) {
+                        // Update newsletter preference
+                        await supabase
+                            .from('user_preferences')
+                            .update({ newsletter_subscribed: true })
+                            .eq('user_id', data.user.id);
+                    }
+                    updateAuthUI();
+                }
+            } catch (error) {
+                showMessage(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function signInTest() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            showMessage('Signing in...', 'info');
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) throw error;
+                
+                showMessage('✅ Signed in successfully!', 'success');
+                updateAuthUI();
+            } catch (error) {
+                showMessage(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function signOutTest() {
+            const { error } = await supabase.auth.signOut();
+            if (!error) {
+                showMessage('👋 Signed out', 'info');
+                updateAuthUI();
+            }
+        }
+
+        // 3. Credits Functions
+        async function checkCredits() {
+            const user = await getCurrentUser();
+            if (!user) {
+                showMessage('Please sign in first', 'error');
+                return;
+            }
+
+            const prefs = await getUserPreferences(user.id);
+            const credits = prefs?.scan_credits || 0;
+            const div = document.getElementById('creditsInfo');
+            div.innerHTML = `<div class="info">💳 You have ${credits} scan credits</div>`;
+        }
+
+        async function useCredit() {
+            const user = await getCurrentUser();
+            if (!user) {
+                showMessage('Please sign in first', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .rpc('use_scan_credit', { p_user_id: user.id });
+
+                if (error) throw error;
+
+                if (!data) {
+                    showMessage('❌ No scan credits available', 'error');
+                } else {
+                    showMessage('✅ Used 1 scan credit', 'success');
+                    checkCredits();
+                    updateAuthUI();
+                }
+            } catch (error) {
+                showMessage(`❌ ${error.message}`, 'error');
+            }
+        }
+
+        // 4. Collection Functions
+        async function checkCollections() {
+            const user = await getCurrentUser();
+            if (!user) {
+                showMessage('Please sign in first', 'error');
+                return;
+            }
+
+            try {
+                const { data: collections, error } = await supabase
+                    .from('collections')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                const div = document.getElementById('collectionInfo');
+                
+                if (collections.length === 0) {
+                    div.innerHTML = '<div class="info">No collections found</div>';
+                } else {
+                    let html = '<h4>Your Collections:</h4>';
+                    collections.forEach(col => {
+                        html += `<div class="info">
+                            <strong>${col.name}</strong><br>
+                            Cards: ${col.card_count} | Value: $${col.total_value}
+                        </div>`;
+                    });
+                    div.innerHTML = html;
+                }
+            } catch (error) {
+                showMessage(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function addTestCard() {
+            const user = await getCurrentUser();
+            if (!user) {
+                showMessage('Please sign in first', 'error');
+                return;
+            }
+
+            try {
+                // Get default collection
+                const { data: collections, error: colError } = await supabase
+                    .from('collections')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .eq('name', 'My Collection')
+                    .single();
+
+                if (colError) throw colError;
+
+                const testCard = {
+                    user_id: user.id,
+                    collection_id: collections.id,
+                    scryfall_id: 'test-' + Date.now(),
+                    card_name: 'Black Lotus (Test)',
+                    set_code: 'LEA',
+                    set_name: 'Limited Edition Alpha',
+                    collector_number: '232',
+                    current_price: 1000.00,
+                    price_when_added: 1000.00,
+                    image_url: 'https://cards.scryfall.io/normal/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
+                    condition: 'NM',
+                    foil: false,
+                    quantity: 1
+                };
+
+                const { data, error } = await supabase
+                    .from('saved_cards')
+                    .insert(testCard)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                showMessage('✅ Added test card to collection!', 'success');
+                checkCollections();
+            } catch (error) {
+                showMessage(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            updateAuthUI();
+            showMessage('👋 Welcome to MTG Scanner Test Page', 'info');
+            console.log('Page loaded. Supabase client:', supabase);
+        };
+
+        // Listen to auth changes
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Auth event:', event);
+            if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+                updateAuthUI();
+            }
+        });
+    </script>
+</body>
+</html>
