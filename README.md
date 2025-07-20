@@ -44,9 +44,7 @@ vercel --prod
 
 ## 🔧 Configuration
 
-### API Keys (Currently in code - move to env vars for production)
-- **Gemini API**: `AIzaSyBtqyUy1X3BdNtUAW88QZWbtqI39MbUDdk`
-- **Stripe Publishable**: `pk_live_51RhfZz2MTNp7aGECjmpnQRWFR0hQSNZvcxOp5nKBhclf90P9lAieTCTrCYYeh4537aeDXDM4N7LVo7SNogEEHhVH00mBdEFiJ4`
+
 
 ### Environment Variables (Recommended)
 ```env
